@@ -175,15 +175,15 @@ end)
 --------------------------------------------------
 local displayFrame = CreateFrame("Frame", "ShimmerTrackerDisplay", UIParent)
 displayFrame:SetSize(400, 50)
-displayFrame:SetPoint("TOP", UIParent, "TOP", 0, -120)
+displayFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 18)
 displayFrame:SetFrameStrata("HIGH")
 displayFrame:Show()
 
 statusText = displayFrame:CreateFontString(nil, "OVERLAY")
-statusText:SetFont("Fonts\\FRIZQT__.TTF", 28, "OUTLINE")
+statusText:SetFont("Fonts\\FRIZQT__.TTF", 20, "OUTLINE")
 statusText:SetPoint("CENTER")
 statusText:SetJustifyH("CENTER")
-statusText:SetTextColor(1, 0.1, 0.1, 1) -- red-ish
+statusText:SetTextColor(1, 1, 1, 1)
 statusText:SetText("")
 
 
