@@ -4,7 +4,6 @@ local blinkCD = 15
 local shimmerSpellID = 212653
 local blinkSpellID = 1953
 local alterTimeSpellID = 342247
-local cancelItemSpellID = 30161 -- The better and more sparkly option.
 local defaultCancelItem = 53808 -- Pygmy Oil
 
 local AT_DURATION = 10
@@ -25,6 +24,23 @@ local UpdateCooldownText
 local StartRecharge
 
 --------------------------------------------------
+-- Global Function
+--------------------------------------------------
+function AlterTimeCancelled()
+    print("Reached my cool new alter cancel function.")
+    if not alterTimeActive then
+        return
+    end
+
+    alterTimeActive = false
+
+    if alterTimeTimer then
+        alterTimeTimer:Cancel()
+        alterTimeTimer = nil
+    end
+end
+
+--------------------------------------------------
 -- DB Stuff
 --------------------------------------------------
 local initFrame = CreateFrame("Frame")
@@ -35,14 +51,6 @@ initFrame:SetScript("OnEvent", function(_, _, addonName)
         return
     end
 
-    AryShimmerTrackerDB = AryShimmerTrackerDB or {}
-
-    if type(AryShimmerTrackerDB.cancelItemSpellID) ~= "number" then
-        AryShimmerTrackerDB.cancelItemSpellID = defaultCancelItem
-    end
-
-    -- Sync runtime value
-    cancelItemSpellID = AryShimmerTrackerDB.cancelItemSpellID
 end)
 
 --------------------------------------------------
@@ -182,10 +190,6 @@ eventFrame:SetScript("OnEvent", function(_, _, unit, _, spellID)
         -- First cast: arm delayed refund
         alterTimeActive = true
         alterTimeTimer = C_Timer.NewTimer(AT_DURATION, GrantAlterTimeCharge)
-
-    elseif spellID == cancelItemSpellID then
-        print("Cast Cancel-Item")
-        CancelAlterTime()
     end
 end)
 
@@ -230,37 +234,6 @@ do
         desc:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -8)
         desc:SetJustifyH("LEFT")
         desc:SetText("Made by Aryella on Silvermoon EU")
-
-        local iconLabel = self:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-        iconLabel:SetPoint("TOPLEFT", desc, "BOTTOMLEFT", 0, -15)
-        iconLabel:SetText("Cancel item Spell ID:")
-
-        local editBox = CreateFrame("EditBox", "FocusMarkerOptionsIconEditBox", self, "InputBoxTemplate")
-        editBox:SetSize(80, 20)
-        editBox:SetPoint("LEFT", iconLabel, "RIGHT", 10, 0)
-        editBox:SetText(tostring(AryShimmerTrackerDB.cancelItemSpellID))
-        editBox:SetAutoFocus(false)
-
-        editBox:SetScript("OnEnterPressed", function(self)
-            local value = tonumber(self:GetText())
-
-            if value then
-                AryShimmerTrackerDB.cancelItemSpellID = value
-                cancelItemSpellID = value
-                self:ClearFocus()
-                print("ShimmerTracker: Cancel item Spell ID set to:", value)
-            else
-                print("ShimmerTracker: Invalid Spell ID")
-                self:SetText(tostring(AryShimmerTrackerDB.cancelItemSpellID))
-            end
-        end)
-
-        local hint = self:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
-        hint:SetPoint("TOPLEFT", iconLabel, "BOTTOMLEFT", 0, -15)
-        hint:SetJustifyH("LEFT")
-        hint:SetText("A few suggestions: \n" ..
-                    "Noggenfogger Elixir - 16589\n" ..
-                    "Pygmy Oil - 53808")
     end)
 
     if Settings and Settings.RegisterCanvasLayoutCategory and Settings.RegisterAddOnCategory then
