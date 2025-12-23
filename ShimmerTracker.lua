@@ -4,8 +4,8 @@ local blinkCD = 15
 local shimmerSpellID = 212653
 local blinkSpellID = 1953
 local alterTimeSpellID = 342247
---local cancelItemSpellID = 53808
-local cancelItemSpellID = 30161
+local cancelItemSpellID = 30161 -- The better and more sparkly option.
+local defaultCancelItem = 53808 -- Pygmy Oil
 
 local AT_DURATION = 10
 local alterTimeActive = false
@@ -23,6 +23,27 @@ local settingsCategory
 -- Pre declaring function names because i CBA
 local UpdateCooldownText
 local StartRecharge
+
+--------------------------------------------------
+-- DB Stuff
+--------------------------------------------------
+local initFrame = CreateFrame("Frame")
+initFrame:RegisterEvent("ADDON_LOADED")
+
+initFrame:SetScript("OnEvent", function(_, _, addonName)
+    if addonName ~= "ShimmerTracker" then
+        return
+    end
+
+    AryShimmerTrackerDB = AryShimmerTrackerDB or {}
+
+    if type(AryShimmerTrackerDB.cancelItemSpellID) ~= "number" then
+        AryShimmerTrackerDB.cancelItemSpellID = defaultCancelItem
+    end
+
+    -- Sync runtime value
+    cancelItemSpellID = AryShimmerTrackerDB.cancelItemSpellID
+end)
 
 --------------------------------------------------
 -- Helper functions.
@@ -132,7 +153,6 @@ eventFrame:SetScript("OnEvent", function(_, _, unit, _, spellID)
         if charges > 0 then
             charges = charges - 1
 
-            -- Start recharge on FIRST charge spend
             if charges == MAX_CHARGES - 1 then
                 StartRecharge(true)
             end
@@ -143,7 +163,6 @@ eventFrame:SetScript("OnEvent", function(_, _, unit, _, spellID)
         if charges > 0 then
             charges = charges - 1
 
-            -- Start recharge on FIRST charge spend
             if charges == MAX_CHARGES - 1 then
                 StartRecharge(false)
             end
@@ -219,7 +238,22 @@ do
         local editBox = CreateFrame("EditBox", "FocusMarkerOptionsIconEditBox", self, "InputBoxTemplate")
         editBox:SetSize(80, 20)
         editBox:SetPoint("LEFT", iconLabel, "RIGHT", 10, 0)
+        editBox:SetText(tostring(AryShimmerTrackerDB.cancelItemSpellID))
         editBox:SetAutoFocus(false)
+
+        editBox:SetScript("OnEnterPressed", function(self)
+            local value = tonumber(self:GetText())
+
+            if value then
+                AryShimmerTrackerDB.cancelItemSpellID = value
+                cancelItemSpellID = value
+                self:ClearFocus()
+                print("ShimmerTracker: Cancel item Spell ID set to:", value)
+            else
+                print("ShimmerTracker: Invalid Spell ID")
+                self:SetText(tostring(AryShimmerTrackerDB.cancelItemSpellID))
+            end
+        end)
 
         local hint = self:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
         hint:SetPoint("TOPLEFT", iconLabel, "BOTTOMLEFT", 0, -15)
@@ -232,11 +266,5 @@ do
     if Settings and Settings.RegisterCanvasLayoutCategory and Settings.RegisterAddOnCategory then
         settingsCategory = Settings.RegisterCanvasLayoutCategory(panel, panel.name)
         Settings.RegisterAddOnCategory(settingsCategory)
-    else
-        -- Something is wrong and can't make the options menu. AKA fuck handling multiple client versions. 
-        if not FocusMarkerOptions_NoInterfaceOptionsWarning then
-            FocusMarkerOptions_NoInterfaceOptionsWarning = true
-            print("|cffffff00[TalentReminder]|r Unable to register options panel: no Settings or InterfaceOptions API found.")
-        end
     end
 end
