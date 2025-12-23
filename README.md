@@ -9,6 +9,6 @@ If you want to use a different way to signal to the addon that you've cancelled 
 Your cancelaura macro has to look something like this: 
 > #showtooltip Alter Time  
 > /cancelaura Alter Time  
-> /cast Pygmy Oil  
+> /run AlterTimeCancelled()   
 
 Made by Aryella, on Silvermoon EU.
