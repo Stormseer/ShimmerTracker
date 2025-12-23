@@ -6,4 +6,9 @@ It has the cooldown values of Shimmer/Blink *HARD CODED*. If you're a monkey and
 
 If you want to use a different way to signal to the addon that you've cancelled Alter Time, go check the options panel and put in the spell ID. 
 
+Your cancelaura macro has to look something like this: 
+> #showtooltip Alter Time
+> /cancelaura Alter Time
+> /cast Pygmy Oil
+
 Made by Aryella, on Silvermoon EU.
