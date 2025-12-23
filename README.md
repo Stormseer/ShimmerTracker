@@ -7,7 +7,7 @@ It has the cooldown values of Shimmer/Blink *HARD CODED*. If you're a monkey and
 Your cancelaura macro HAS TO look like this: 
 > #showtooltip Alter Time  
 > /cancelaura Alter Time  
-> /run AlterTimeCancelled()   
+> /run AlterTimeCancelled()  
 The macro is case sensitive!
 
 Made by Aryella, on Silvermoon EU.
