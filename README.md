@@ -8,6 +8,7 @@ Your cancelaura macro HAS TO look like this:
 > #showtooltip Alter Time  
 > /cancelaura Alter Time  
 > /run AlterTimeCancelled()  
+
 The macro is case sensitive!
 
 Made by Aryella, on Silvermoon EU.
