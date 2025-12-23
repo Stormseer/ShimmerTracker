@@ -1,187 +1,13 @@
-local shimmerCD = 27
-local blinkCD = 15
-
-local shimmerSpellID = 212653
-local blinkSpellID = 1953
-local alterTimeSpellID = 342247
-local defaultCancelItem = 53808 -- Pygmy Oil
-
-local AT_DURATION = 10
-local alterTimeActive = false
-local alterTimeTimer = nil
-
-local shimmerReadyAt = 0
-local activeTimer = nil
-
-local MAX_CHARGES = 2
-local charges = MAX_CHARGES
-
-local statusText
+local Addon = CreateFrame("Frame")
+local GetSpellCooldown = C_Spell.GetSpellCooldown -- Upvalue
 local settingsCategory
 
--- Pre declaring function names because i CBA
-local UpdateCooldownText
-local StartRecharge
+local blinkSpellID   = 1953
+local shimmerSpellID = 212653
+local SpellID = 1953 -- Blink
 
 --------------------------------------------------
--- Global Function
---------------------------------------------------
-function AlterTimeCancelled()
-    print("Reached my cool new alter cancel function.")
-    if not alterTimeActive then
-        return
-    end
-
-    alterTimeActive = false
-
-    if alterTimeTimer then
-        alterTimeTimer:Cancel()
-        alterTimeTimer = nil
-    end
-end
-
---------------------------------------------------
--- DB Stuff
---------------------------------------------------
-local initFrame = CreateFrame("Frame")
-initFrame:RegisterEvent("ADDON_LOADED")
-
-initFrame:SetScript("OnEvent", function(_, _, addonName)
-    if addonName ~= "ShimmerTracker" then
-        return
-    end
-
-end)
-
---------------------------------------------------
--- Helper functions.
---------------------------------------------------
-local function GrantAlterTimeCharge()
-    alterTimeActive = false
-    alterTimeTimer = nil
-
-    if charges < MAX_CHARGES then
-        charges = charges + 1
-    end
-
-    if charges >= MAX_CHARGES then
-        shimmerReadyAt = 0
-
-        if activeTimer then
-            activeTimer:Cancel()
-            activeTimer = nil
-        end
-        statusText:SetText("")
-    end
-end
-
-UpdateCooldownText = function(isShimmer)
-    if charges > 0 then
-        statusText:SetText("")
-        return
-    end
-
-    local now = GetTime()
-    local remaining = shimmerReadyAt - now
-
-    -- Handle recharge completion
-    if remaining <= 0 then
-        charges = math.min(charges + 1, MAX_CHARGES)
-
-        if charges >= 1 then
-            statusText:SetText("")
-
-            if activeTimer then
-                activeTimer:Cancel()
-                activeTimer = nil
-            end
-        end
-
-        -- If still missing charges, start next recharge
-        if charges < MAX_CHARGES then
-            StartRecharge(isShimmer)
-        end
-
-        return
-    end
-
-    -- Only show text when NO charges
-    if charges == 0 then
-        statusText:SetText(string.format("No Shimmer: %.1f", remaining))
-    end
-end
-
-
-StartRecharge = function(isShimmer)
-    if shimmerReadyAt > GetTime() then
-        return
-    end
-
-    local cd = isShimmer and shimmerCD or blinkCD
-    shimmerReadyAt = GetTime() + cd
-
-    if activeTimer then
-        activeTimer:Cancel()
-        activeTimer = nil
-    end
-
-    -- Instant update to fix text showing up 1 second *after* you've run out of charges.
-    UpdateCooldownText(isShimmer)
-
-    activeTimer = C_Timer.NewTicker(0.1, function()
-        UpdateCooldownText(isShimmer)
-    end)
-end
-
-
---------------------------------------------------
--- Spell Cast Handler
---------------------------------------------------
-local eventFrame = CreateFrame("Frame")
-eventFrame:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
-
-eventFrame:SetScript("OnEvent", function(_, _, unit, _, spellID)
-    if unit ~= "player" then return end
-
-    if spellID == shimmerSpellID then
-        print("Cast Shimmer")
-        if charges > 0 then
-            charges = charges - 1
-
-            if charges == MAX_CHARGES - 1 then
-                StartRecharge(true)
-            end
-        end
-
-    elseif spellID == blinkSpellID then
-        print("Cast Blink")
-        if charges > 0 then
-            charges = charges - 1
-
-            if charges == MAX_CHARGES - 1 then
-                StartRecharge(false)
-            end
-        end
-
-    elseif spellID == alterTimeSpellID then 
-        print("Cast Alter Time")
-        -- If AT is already active, recast = immediate refund
-        if alterTimeActive then
-            if alterTimeTimer then
-                alterTimeTimer:Cancel()
-            end
-            GrantAlterTimeCharge()
-            return
-        end
-
-        -- First cast: arm delayed refund
-        alterTimeActive = true
-        alterTimeTimer = C_Timer.NewTimer(AT_DURATION, GrantAlterTimeCharge)
-    end
-end)
-
---------------------------------------------------
--- The shown text object
+-- The Actual Shown textures and such
 --------------------------------------------------
 local displayFrame = CreateFrame("Frame", "ShimmerTrackerDisplay", UIParent)
 displayFrame:SetSize(400, 50)
@@ -189,13 +15,63 @@ displayFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 18)
 displayFrame:SetFrameStrata("HIGH")
 displayFrame:Show()
 
-statusText = displayFrame:CreateFontString(nil, "OVERLAY")
+local statusText = displayFrame:CreateFontString(nil, "OVERLAY")
 statusText:SetFont("Fonts\\FRIZQT__.TTF", 20, "OUTLINE")
 statusText:SetPoint("CENTER")
 statusText:SetJustifyH("CENTER")
 statusText:SetTextColor(1, 1, 1, 1)
-statusText:SetText("")
 
+--------------------------------------------------
+-- Helper Functions
+--------------------------------------------------
+local function blinkOrShimmer()
+    if C_SpellBook.IsSpellKnown(shimmerSpellID) then
+        SpellID = shimmerSpellID
+    else
+        SpellID = blinkSpellID
+    end
+end
+
+local function GetActualCooldown() 
+    local durationObject = C_Spell.GetSpellCooldownDuration(SpellID)
+    return durationObject:GetRemainingDuration(1)
+end
+
+--------------------------------------------------
+-- DB Stuff
+--------------------------------------------------
+local initFrame = CreateFrame("Frame")
+initFrame:RegisterEvent("ADDON_LOADED")
+initFrame:RegisterEvent("TRAIT_CONFIG_UPDATED")
+initFrame:RegisterEvent("ACTIVE_TALENT_GROUP_CHANGED")
+initFrame:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
+
+initFrame:SetScript("OnEvent", function(_, _, addonName)
+    --if addonName ~= "ShimmerTracker" then
+    --    return
+    --end
+    print("Setting spellID for ShimmerTracker")
+    blinkOrShimmer()
+    print("Tracked Spell ID: " .. SpellID)
+
+end)
+
+--------------------------------------------------
+-- Actual Addon Logic
+--------------------------------------------------
+local function UpdateCdReadyTextures()
+  displayFrame:SetAlphaFromBoolean(GetSpellCooldown(SpellID).isOnGCD ~= false, 0, 1)
+  statusText:SetText(string.format("No Shimmer: %.1f", GetActualCooldown()))
+end
+
+C_Timer.NewTicker(0.1, UpdateCdReadyTextures)
+
+function Addon:SPELL_UPDATE_COOLDOWN()
+  UpdateCdReadyTextures()
+end
+
+Addon:SetScript("OnEvent", function(self, event, ...) return self[event](self, ...) end)
+Addon:RegisterEvent("SPELL_UPDATE_COOLDOWN")
 
 -----------------------------------------------------------------------
 -- 💀💀💀💀
