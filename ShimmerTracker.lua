@@ -1,6 +1,5 @@
 local shimmerCD = 27
 local blinkCD = 15
-local twoCharges = true
 
 local shimmerSpellID = 212653
 local blinkSpellID = 1953
@@ -8,13 +7,15 @@ local alterTimeSpellID = 342247
 --local cancelItemSpellID = 53808
 local cancelItemSpellID = 30161
 
+local AT_DURATION = 10
+local alterTimeActive = false
+local alterTimeTimer = nil
+
 local shimmerReadyAt = 0
 local activeTimer = nil
-local currentInterval = nil
 
 local MAX_CHARGES = 2
 local charges = MAX_CHARGES
-local rechargeEnd = 0
 
 local statusText
 local settingsCategory
@@ -26,7 +27,44 @@ local StartRecharge
 --------------------------------------------------
 -- Helper functions.
 --------------------------------------------------
+local function GrantAlterTimeCharge()
+    alterTimeActive = false
+    alterTimeTimer = nil
+
+    if charges < MAX_CHARGES then
+        charges = charges + 1
+    end
+
+    if charges >= MAX_CHARGES then
+        shimmerReadyAt = 0
+
+        if activeTimer then
+            activeTimer:Cancel()
+            activeTimer = nil
+        end
+        statusText:SetText("")
+    end
+end
+
+local function CancelAlterTime()
+    if not alterTimeActive then
+        return
+    end
+
+    alterTimeActive = false
+
+    if alterTimeTimer then
+        alterTimeTimer:Cancel()
+        alterTimeTimer = nil
+    end
+end
+
 UpdateCooldownText = function(isShimmer)
+    if charges > 0 then
+        statusText:SetText("")
+        return
+    end
+
     local now = GetTime()
     local remaining = shimmerReadyAt - now
 
@@ -40,13 +78,12 @@ UpdateCooldownText = function(isShimmer)
             if activeTimer then
                 activeTimer:Cancel()
                 activeTimer = nil
-                currentInterval = nil
             end
         end
 
         -- If still missing charges, start next recharge
         if charges < MAX_CHARGES then
-            StartRecharge()
+            StartRecharge(isShimmer)
         end
 
         return
@@ -54,34 +91,30 @@ UpdateCooldownText = function(isShimmer)
 
     -- Only show text when NO charges
     if charges == 0 then
-        if remaining <= 3 then
-            statusText:SetText(string.format("No Shimmer: %.1f", remaining))
-        else
-            statusText:SetText(string.format("No Shimmer: %.0f", remaining))
-        end
-    end
-
-    -- Adaptive tick rate
-    local desiredInterval = (remaining <= 3) and 0.1 or 1.0
-    if desiredInterval ~= currentInterval then
-        if activeTimer then activeTimer:Cancel() end
-        currentInterval = desiredInterval
-        activeTimer = C_Timer.NewTicker(currentInterval, function()
-            UpdateCooldownText(isShimmer)
-        end)
+        statusText:SetText(string.format("No Shimmer: %.1f", remaining))
     end
 end
 
 
 StartRecharge = function(isShimmer)
-    if isShimmer then 
-        rechargeEnd = GetTime() + shimmerCD
-    else
-        rechargeEnd = GetTime() + blinkCD
+    if shimmerReadyAt > GetTime() then
+        return
     end
-    
-    shimmerReadyAt = rechargeEnd
+
+    local cd = isShimmer and shimmerCD or blinkCD
+    shimmerReadyAt = GetTime() + cd
+
+    if activeTimer then
+        activeTimer:Cancel()
+        activeTimer = nil
+    end
+
+    -- Instant update to fix text showing up 1 second *after* you've run out of charges.
     UpdateCooldownText(isShimmer)
+
+    activeTimer = C_Timer.NewTicker(0.1, function()
+        UpdateCooldownText(isShimmer)
+    end)
 end
 
 
@@ -99,7 +132,7 @@ eventFrame:SetScript("OnEvent", function(_, _, unit, _, spellID)
         if charges > 0 then
             charges = charges - 1
 
-            -- If we just spent the last charge, start recharge
+            -- Start recharge on FIRST charge spend
             if charges == MAX_CHARGES - 1 then
                 StartRecharge(true)
             end
@@ -110,7 +143,7 @@ eventFrame:SetScript("OnEvent", function(_, _, unit, _, spellID)
         if charges > 0 then
             charges = charges - 1
 
-            -- If we just spent the last charge, start recharge
+            -- Start recharge on FIRST charge spend
             if charges == MAX_CHARGES - 1 then
                 StartRecharge(false)
             end
@@ -118,10 +151,22 @@ eventFrame:SetScript("OnEvent", function(_, _, unit, _, spellID)
 
     elseif spellID == alterTimeSpellID then 
         print("Cast Alter Time")
+        -- If AT is already active, recast = immediate refund
+        if alterTimeActive then
+            if alterTimeTimer then
+                alterTimeTimer:Cancel()
+            end
+            GrantAlterTimeCharge()
+            return
+        end
+
+        -- First cast: arm delayed refund
+        alterTimeActive = true
+        alterTimeTimer = C_Timer.NewTimer(AT_DURATION, GrantAlterTimeCharge)
 
     elseif spellID == cancelItemSpellID then
         print("Cast Cancel-Item")
-
+        CancelAlterTime()
     end
 end)
 
