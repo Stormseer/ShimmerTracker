@@ -75,19 +75,6 @@ local function GrantAlterTimeCharge()
     end
 end
 
-local function CancelAlterTime()
-    if not alterTimeActive then
-        return
-    end
-
-    alterTimeActive = false
-
-    if alterTimeTimer then
-        alterTimeTimer:Cancel()
-        alterTimeTimer = nil
-    end
-end
-
 UpdateCooldownText = function(isShimmer)
     if charges > 0 then
         statusText:SetText("")
@@ -215,7 +202,7 @@ statusText:SetText("")
 -- It's all Options Panel from down here (enter at your own risk)
 -----------------------------------------------------------------------
 do
-    local panel = CreateFrame("Frame", "TalentReminderOptionsPanel")
+    local panel = CreateFrame("Frame", "ShimmerTrackerOptionsPanel")
     panel.name = "ShimmerTracker"
     panel:Hide()
 
