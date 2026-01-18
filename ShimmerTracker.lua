@@ -5,6 +5,7 @@ local settingsCategory
 local blinkSpellID   = 1953
 local shimmerSpellID = 212653
 local SpellID = 1953 -- Blink
+local ticker
 
 local DB
 local defaults = {
@@ -39,11 +40,6 @@ local function blinkOrShimmer()
     end
 end
 
-local function GetActualCooldown() 
-    local durationObject = C_Spell.GetSpellCooldownDuration(SpellID)
-    return durationObject:GetRemainingDuration(1)
-end
-
 local function ApplyPosition()
     displayFrame:ClearAllPoints()
     displayFrame:SetPoint("CENTER", UIParent, "CENTER", DB.x, DB.y)
@@ -53,9 +49,25 @@ local function ApplyFontSize()
     statusText:SetFont("Fonts\\FRIZQT__.TTF", DB.fontSize, "OUTLINE")
 end
 
+local function UpdateCdReadyTextures()
+    local durationObject = C_Spell.GetSpellCooldownDuration(SpellID)
+    local actualCooldown =  durationObject:GetRemainingDuration(1)
+
+    --print("Actual Cooldown: " .. actualCooldown .. ", spellID: " .. SpellID)
+
+    displayFrame:SetAlphaFromBoolean(GetSpellCooldown(SpellID).isOnGCD ~= false, 0, 1)
+    statusText:SetText(string.format("No Shimmer: %.1f", actualCooldown))
+end
+
+local function StartTicker()
+    if ticker then
+        ticker:Cancel()
+    end
+    ticker = C_Timer.NewTicker(0.1, UpdateCdReadyTextures)
+end
 
 --------------------------------------------------
--- DB Stuff
+-- Addon Load/Spec Change
 --------------------------------------------------
 local initFrame = CreateFrame("Frame")
 initFrame:RegisterEvent("ADDON_LOADED")
@@ -63,40 +75,44 @@ initFrame:RegisterEvent("TRAIT_CONFIG_UPDATED")
 initFrame:RegisterEvent("ACTIVE_TALENT_GROUP_CHANGED")
 initFrame:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
 
-initFrame:SetScript("OnEvent", function(_, _, addonName)
-    if addonName ~= "ShimmerTracker" then
-        return
-    end
+initFrame:SetScript("OnEvent", function(_, event, addonName)
+    if event == "ADDON_LOADED" and addonName == "ShimmerTracker" then
 
-    -- Init DB
-    ShimmerTrackerDB = ShimmerTrackerDB or {}
-    DB = ShimmerTrackerDB
+        -- Init DB
+        ShimmerTrackerDB = ShimmerTrackerDB or {}
+        DB = ShimmerTrackerDB
 
-    for k, v in pairs(defaults) do
-        if DB[k] == nil then
-            DB[k] = v
+        for k, v in pairs(defaults) do
+            if DB[k] == nil then
+                DB[k] = v
+            end
         end
+
+        -- Apply saved settings
+        displayFrame:ClearAllPoints()
+        displayFrame:SetPoint("CENTER", UIParent, "CENTER", DB.x, DB.y)
+
+        statusText:SetFont("Fonts\\FRIZQT__.TTF", DB.fontSize, "OUTLINE")
+        
+        blinkOrShimmer()
+        
+        -- Start the ticker after everything is initialized
+        StartTicker()
+
+    elseif event == "TRAIT_CONFIG_UPDATED" or 
+           event == "ACTIVE_TALENT_GROUP_CHANGED" or 
+           event == "PLAYER_SPECIALIZATION_CHANGED" then
+        --blinkOrShimmer()
+        --StartTicker()
+
+        C_Timer.After(0.5, blinkOrShimmer)
+        C_Timer.After(0.6, StartTicker)
     end
-
-    -- Apply saved settings
-    displayFrame:ClearAllPoints()
-    displayFrame:SetPoint("CENTER", UIParent, "CENTER", DB.x, DB.y)
-
-    statusText:SetFont("Fonts\\FRIZQT__.TTF", DB.fontSize, "OUTLINE")
-
-    blinkOrShimmer()
 end)
 
 --------------------------------------------------
 -- Actual Addon Logic
 --------------------------------------------------
-local function UpdateCdReadyTextures()
-  displayFrame:SetAlphaFromBoolean(GetSpellCooldown(SpellID).isOnGCD ~= false, 0, 1)
-  statusText:SetText(string.format("No Shimmer: %.1f", GetActualCooldown()))
-end
-
-C_Timer.NewTicker(0.1, UpdateCdReadyTextures)
-
 function Addon:SPELL_UPDATE_COOLDOWN()
   UpdateCdReadyTextures()
 end

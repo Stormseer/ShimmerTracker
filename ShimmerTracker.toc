@@ -3,6 +3,6 @@
 ## Author: Aryella
 ## Version: 1.0
 ## Notes: Simple tracker that tells you when you have no shimmer charges in text format. 
-## SavedVariables: AryShimmerTrackerDB
+## SavedVariables: ShimmerTrackerDB
 
 ShimmerTracker.lua
