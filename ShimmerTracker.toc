@@ -1,7 +1,7 @@
 ## Interface: 120000, 120001
 ## Title: Shimmer Tracker
 ## Author: Aryella
-## Version: 1.0
+## Version: 1.1
 ## Notes: Simple tracker that tells you when you have no shimmer charges in text format. 
 ## SavedVariables: ShimmerTrackerDB
 
