@@ -3,6 +3,7 @@
 ## Author: Aryella
 ## Version: 1.1
 ## Notes: Simple tracker that tells you when you have no shimmer charges in text format. 
+## IconTexture: Interface/AddOns/ShimmerTracker/shimmer-icon
 ## SavedVariables: ShimmerTrackerDB
 
 ShimmerTracker.lua
