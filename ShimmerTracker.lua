@@ -4,6 +4,7 @@ local settingsCategory
 
 local blinkSpellID   = 1953
 local shimmerSpellID = 212653
+local defaultText = "No Shimmer: "
 local SpellID = 1953 -- Blink
 local ticker
 
@@ -12,6 +13,7 @@ local defaults = {
     x = 0,
     y = 18,
     fontSize = 20,
+    addonText = "No Shimmer: ",
 }
 
 --------------------------------------------------
@@ -55,8 +57,9 @@ local function UpdateCdReadyTextures()
 
     --print("Actual Cooldown: " .. actualCooldown .. ", spellID: " .. SpellID)
 
+    local prefix = DB.addonText or defaultText
     displayFrame:SetAlphaFromBoolean(GetSpellCooldown(SpellID).isOnGCD ~= false, 0, 1)
-    statusText:SetText(string.format("No Shimmer: %.1f", actualCooldown))
+    statusText:SetText(string.format("%s%.1f", prefix, actualCooldown))
 end
 
 local function StartTicker()
@@ -210,6 +213,47 @@ do
             end
             self:ClearFocus()
         end)
+
+        ----------------------------------------------------------------
+        -- Edit box: Text Contents & Default Button
+        ----------------------------------------------------------------
+        local conditionalsLabel = self:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+        conditionalsLabel:SetPoint("TOPLEFT", fontSizeLabel, "BOTTOMLEFT", 0, -20)
+        conditionalsLabel:SetText("Cooldown text: ")
+
+        local conditionalsEditBox = CreateFrame("EditBox", "FocusMarkerOptionsConditionalsEditBox", self, "InputBoxTemplate")
+        conditionalsEditBox:SetSize(200, 20)
+        conditionalsEditBox:SetPoint("LEFT", conditionalsLabel, "RIGHT", 10, 0)
+        conditionalsEditBox:SetAutoFocus(false)
+        conditionalsEditBox:SetText(DB.addonText)
+
+        local conditionalsButton = CreateFrame("Button", "FocusMarkerOptionsConditionalReset", self, "UIPanelButtonTemplate")
+        conditionalsButton:SetSize(130, 24)
+        conditionalsButton:SetPoint("LEFT", conditionalsEditBox, "RIGHT", 4, 0)
+        conditionalsButton:SetText("Default Text")
+
+        conditionalsEditBox:SetScript("OnEnterPressed", function(self)
+            local text = self:GetText()
+            DB.addonText = text ~= "" and text or defaultText
+            UpdateCdReadyTextures()
+            self:ClearFocus()
+        end)
+
+        conditionalsEditBox:SetScript("OnEditFocusLost", function(self)
+            local text = self:GetText()
+            DB.addonText = text ~= "" and text or defaultText
+            UpdateCdReadyTextures()
+        end)
+
+        conditionalsButton:SetScript("OnClick", function()
+            conditionalsEditBox:SetText(defaultText)
+            DB.addonText = nil
+        end)
+
+        local cdTextDesc = self:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+        cdTextDesc:SetPoint("TOPLEFT", conditionalsLabel, "BOTTOMLEFT", 0, -8)
+        cdTextDesc:SetJustifyH("LEFT")
+        cdTextDesc:SetText("(Include a space at the end if you want one)")
     end)
 
     if Settings and Settings.RegisterCanvasLayoutCategory and Settings.RegisterAddOnCategory then
