@@ -14,6 +14,7 @@ local defaults = {
     y = 18,
     fontSize = 20,
     addonText = "No Shimmer: ",
+    onlyRaidDungeon = false,
 }
 
 --------------------------------------------------
@@ -51,6 +52,11 @@ local function ApplyFontSize()
     statusText:SetFont("Fonts\\FRIZQT__.TTF", DB.fontSize, "OUTLINE")
 end
 
+local function IsInDungeonOrRaid()
+    local _, instanceType = IsInInstance()
+    return instanceType == "party" or instanceType == "raid"
+end
+
 local function UpdateCdReadyTextures()
     local durationObject = C_Spell.GetSpellCooldownDuration(SpellID)
     local actualCooldown =  durationObject:GetRemainingDuration(1)
@@ -60,6 +66,10 @@ local function UpdateCdReadyTextures()
     local prefix = DB.addonText or defaultText
     displayFrame:SetAlphaFromBoolean(GetSpellCooldown(SpellID).isOnGCD ~= false, 0, 1)
     statusText:SetText(string.format("%s%.1f", prefix, actualCooldown))
+
+    if DB.onlyRaidDungeon and not IsInDungeonOrRaid() then
+        displayFrame:SetAlpha(0)
+    end
 end
 
 local function StartTicker()
@@ -96,14 +106,14 @@ initFrame:SetScript("OnEvent", function(_, event, addonName)
         displayFrame:SetPoint("CENTER", UIParent, "CENTER", DB.x, DB.y)
 
         statusText:SetFont("Fonts\\FRIZQT__.TTF", DB.fontSize, "OUTLINE")
-        
+
         blinkOrShimmer()
-        
+
         -- Start the ticker after everything is initialized
         StartTicker()
 
-    elseif event == "TRAIT_CONFIG_UPDATED" or 
-           event == "ACTIVE_TALENT_GROUP_CHANGED" or 
+    elseif event == "TRAIT_CONFIG_UPDATED" or
+           event == "ACTIVE_TALENT_GROUP_CHANGED" or
            event == "PLAYER_SPECIALIZATION_CHANGED" then
         --blinkOrShimmer()
         --StartTicker()
@@ -170,7 +180,7 @@ do
             end
             self:ClearFocus()
         end)
-        
+
         local yPosition = self:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
         yPosition:SetPoint("TOPLEFT", xPosition, "BOTTOMLEFT", 0, -10)
         yPosition:SetText("Text Y position:")
@@ -215,13 +225,29 @@ do
         end)
 
         ----------------------------------------------------------------
+        -- Only in Dungeon/Raid checkbox
+        ----------------------------------------------------------------
+        if DB.onlyRaidDungeon == nil then
+            DB.onlyRaidDungeon = false
+        end
+
+        local dungeonRaidCheckbox = CreateFrame("CheckButton", "ShimmerTrackerOnlyShowInRaid", self, "ChatConfigCheckButtonTemplate")
+        dungeonRaidCheckbox:SetPoint("TOPLEFT", fontSizeLabel, "BOTTOMLEFT", -3, -15)
+        dungeonRaidCheckbox.Text:SetText("Only show in Raid/Dungeon")
+        dungeonRaidCheckbox:SetChecked(DB.onlyRaidDungeon)
+
+        dungeonRaidCheckbox:SetScript("OnClick", function(btn)
+            DB.onlyRaidDungeon = btn:GetChecked() and true or false
+        end)
+
+        ----------------------------------------------------------------
         -- Edit box: Text Contents & Default Button
         ----------------------------------------------------------------
         local conditionalsLabel = self:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-        conditionalsLabel:SetPoint("TOPLEFT", fontSizeLabel, "BOTTOMLEFT", 0, -20)
+        conditionalsLabel:SetPoint("TOPLEFT", dungeonRaidCheckbox, "BOTTOMLEFT", 3, -15)
         conditionalsLabel:SetText("Cooldown text: ")
 
-        local conditionalsEditBox = CreateFrame("EditBox", "FocusMarkerOptionsConditionalsEditBox", self, "InputBoxTemplate")
+        local conditionalsEditBox = CreateFrame("EditBox", nil, self, "InputBoxTemplate")
         conditionalsEditBox:SetSize(200, 20)
         conditionalsEditBox:SetPoint("LEFT", conditionalsLabel, "RIGHT", 10, 0)
         conditionalsEditBox:SetAutoFocus(false)
